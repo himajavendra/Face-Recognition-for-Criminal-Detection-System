@@ -1,5 +1,3 @@
-# Combined, Improved & Styled Criminal Registration & Detection UI (Tkinter + DeepFace)
-
 import os
 import shutil
 import sqlite3
@@ -9,7 +7,6 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 from deepface import DeepFace
 
-# Theme Colors
 THEME = {
     "bg": "#1A1A40",
     "header_bg": "#2F4F4F",
@@ -24,36 +21,37 @@ THEME = {
 class CriminalApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Face Recognition System for Criminal Detection")
+        self.root.title("Criminal Detection System")
         self.root.geometry('1350x720')
         self.root.configure(bg=THEME['bg'])
         self.root.state("zoomed")
 
         self.db_path = "images"
-        self.detector = 'retinaface'
-        self.model_name = 'ArcFace'
+        self.model_name = "ArcFace"
+        self.detector = "retinaface"
+        self.temp_image = "temp/1.png"
+
         self.setup_ui()
 
     def setup_ui(self):
-        # Header
         tk.Label(self.root, text="Criminal Detection System", bg=THEME['header_bg'], fg='white',
                  font=("Arial", 20, "bold"), height=2).pack(fill="x")
 
-        # Instructions
-        tk.Label(self.root, text="1. Select an image to scan\n2. Click 'Detect Face' to find matches",
+        tk.Label(self.root, text="1. Select an image\n2. Click 'Detect Face' to find matches",
                  bg=THEME['bg'], fg=THEME['text_dark'], font=("Arial", 14)).place(x=80, y=80)
 
-        # Image Preview
         self.photo_label = tk.Label(self.root, bg=THEME['bg'], bd=2, relief='groove')
         self.photo_label.place(x=80, y=140, width=400, height=400)
 
-        # Buttons
+        self.criminal_face_label = tk.Label(self.root, bg=THEME['bg'], bd=2, relief='groove')
+        self.criminal_face_label.place(x=950, y=140, width=400, height=400)
+
         tk.Button(self.root, text="Select Photo", font=("Arial", 12), width=20, bg=THEME['button_bg'],
                   fg='white', command=self.load_image).place(x=180, y=560)
+
         tk.Button(self.root, text="Detect Face", font=("Arial", 12), width=20, bg=THEME['accent'],
                   fg='white', command=self.view_matches).place(x=180, y=610)
 
-        # Result Table
         self.tree = ttk.Treeview(self.root, columns=("ID", "Name", "Crime", "Nationality", "Confidence"), show='headings')
         for col in self.tree["columns"]:
             self.tree.heading(col, text=col)
@@ -61,8 +59,8 @@ class CriminalApp:
         self.tree.place(x=550, y=140, width=750, height=400)
 
         self.tree.tag_configure('strong', background=THEME['success'])
-        self.tree.tag_configure('medium', background='khaki')
-        self.tree.tag_configure('weak', background='salmon')
+        self.tree.tag_configure('medium', background=THEME['success'])
+        self.tree.tag_configure('weak', background='khakhi')
 
         self.tree.bind("<Double-1>", self.on_double_click)
 
@@ -74,16 +72,16 @@ class CriminalApp:
         if file_path:
             if not os.path.exists("temp"):
                 os.makedirs("temp")
-            shutil.copy(file_path, 'temp/1.png')
-            img = Image.open('temp/1.png').resize((400, 400), Image.LANCZOS)
+            shutil.copy(file_path, self.temp_image)
+            img = Image.open(self.temp_image).resize((400, 400), Image.LANCZOS)
             self.photo = ImageTk.PhotoImage(img)
             self.photo_label.configure(image=self.photo)
 
     def view_matches(self):
         self.tree.delete(*self.tree.get_children())
         try:
-            result = DeepFace.find(img_path="temp/1.png", db_path=self.db_path,
-                                   detector_backend=self.detector, model_name=self.model_name,
+            result = DeepFace.find(img_path=self.temp_image, db_path=self.db_path,
+                                   model_name=self.model_name, detector_backend=self.detector,
                                    enforce_detection=False)
 
             if result[0].empty:
@@ -104,6 +102,7 @@ class CriminalApp:
                 if db_row:
                     tag = 'strong' if confidence >= 95 else 'medium' if confidence >= 85 else 'weak'
                     self.tree.insert("", tk.END, values=(db_row[0], db_row[1], db_row[2], db_row[3], f"{confidence}%"), tags=(tag,))
+
                     winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
 
         except Exception as e:
@@ -123,6 +122,13 @@ class CriminalApp:
         conn.close()
 
         if row:
+            criminal_image_path = os.path.join(self.db_path, f"{criminal_id}.jpg")
+            if os.path.exists(criminal_image_path):
+                criminal_img = Image.open(criminal_image_path).resize((400, 400), Image.LANCZOS)
+                self.criminal_photo = ImageTk.PhotoImage(criminal_img)
+                self.criminal_face_label.configure(image=self.criminal_photo)
+                self.criminal_face_label.image = self.criminal_photo
+
             details = f"""
 Name: {row[1]}
 Father: {row[3]}

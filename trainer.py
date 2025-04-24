@@ -1,46 +1,72 @@
 import cv2
 import os
-import numpy as np
-from PIL import Image
+import sqlite3
+from deepface import DeepFace
 
-# Create recognizer and paths
-recognizer = cv2.face.LBPHFaceRecognizer_create()
-data_path = "dataSet"
-save_path = "recognizer/training_data.yml"
-os.makedirs("recognizer", exist_ok=True)
+# Paths
+DB_PATH = "criminal.db"
+FACE_FOLDER = "images/"
 
-def get_images_and_labels(path):
-    image_paths = [os.path.join(path, f) for f in os.listdir(path) if f.lower().endswith(('jpg', 'jpeg', 'png'))]
-    faces, ids = [], []
+# Connect to SQLite database
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
 
-    for image_path in image_paths:
-        try:
-            img = Image.open(image_path).convert('L')  # grayscale
-            img_np = np.array(img, 'uint8')
+# Open webcam
+cap = cv2.VideoCapture(0)
+print("[INFO] Starting webcam... Press 'q' to quit.")
 
-            file_name = os.path.basename(image_path)
-            id_str = file_name.split(".")[1]
+def get_criminal_details(name):
+    cursor.execute("SELECT * FROM People WHERE Name = ?", (name,))
+    result = cursor.fetchone()
+    if result:
+        return {
+            "ID": result[0],
+            "Name": result[1],
+            "Gender": result[2],
+            "Father": result[3],
+            "Mother": result[4],
+            "Religion": result[5],
+            "Blood Group": result[6],
+            "Identification Mark": result[7],
+            "Nationality": result[8],
+            "Crime": result[9]
+        }
+    return None
 
-            if id_str.isdigit():
-                ids.append(int(id_str))
-                faces.append(img_np)
-                print(f"[INFO] Processed {file_name} - ID: {id_str}")
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    try:
+        # Detect and compare face
+        results = DeepFace.find(img_path=frame, db_path=FACE_FOLDER, enforce_detection=False)
+
+        if len(results) > 0 and len(results[0]) > 0:
+            identity_path = results[0].iloc[0]["identity"]
+            name = os.path.splitext(os.path.basename(identity_path))[0]
+
+            # Fetch full details
+            details = get_criminal_details(name)
+            if details:
+                # Display details on frame
+                cv2.putText(frame, f"Name: {details['Name']}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+                cv2.putText(frame, f"Crime: {details['Crime']}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,255), 2)
+                cv2.putText(frame, f"Nationality: {details['Nationality']}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
             else:
-                print(f"[WARN] Skipping {file_name}: Invalid ID format")
-        except Exception as e:
-            print(f"[ERROR] Could not process {image_path}: {e}")
-    
-    return np.array(ids), faces
+                cv2.putText(frame, "Match found, but no DB details", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,0,255), 2)
 
-# Start training
-print("[INFO] Loading dataset for training...")
-ids, faces = get_images_and_labels(data_path)
+        else:
+            cv2.putText(frame, "No Match Detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,0,255), 2)
 
-if faces:
-    recognizer.train(faces, ids)
-    recognizer.write(save_path)
-    print(f"[SUCCESS] Training complete. Data saved at: {save_path}")
-else:
-    print("[ERROR] No valid training data found.")
+    except Exception as e:
+        print(f"[ERROR] {e}")
 
+    cv2.imshow("Criminal Detection", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
 cv2.destroyAllWindows()
+conn.close()
