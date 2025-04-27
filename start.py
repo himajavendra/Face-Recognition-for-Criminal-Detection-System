@@ -15,19 +15,19 @@ BUTTON_FONT = ("bold", 12)
 
 def register():
     try:
-        call(["python", "registerGUI.py"])
+        call([r"myvenv\Scripts\python.exe", "registerGUI.py"])
     except Exception as e:
         tmsg.showerror("Error", f"Failed to open registration window:\n{e}")
 
 def video_surveillance():
     try:
-        call(["python", "surveillance.py"])
+        call([r"myvenv\Scripts\python.exe", "surveillance.py"])
     except Exception as e:
         tmsg.showerror("Error", f"Failed to start video surveillance:\n{e}")
 
 def detect_criminal():
     try:
-        call(["python", "detect.py"])
+        call([r"myvenv\Scripts\python.exe", "detect.py"])
     except Exception as e:
         tmsg.showerror("Error", f"Failed to start criminal detection:\n{e}")
 
@@ -61,7 +61,7 @@ Button(root, text='PHOTO MATCH', width=35, height=3,
        bg=BUTTON_BG, fg=TEXT_DARK, font=BUTTON_FONT, command=detect_criminal).place(x=420, y=410)
 
 Button(root, text='VIDEO SURVEILLANCE', width=35, height=3,
-       bg=BUTTON_ALT_BG, fg=TEXT_DARK, font=BUTTON_FONT, command=video_surveillance).place(x=420, y=490)
+       bg=BUTTON_BG, fg=TEXT_DARK, font=BUTTON_FONT, command=video_surveillance).place(x=420, y=490)
 
 # Side image
 try:
